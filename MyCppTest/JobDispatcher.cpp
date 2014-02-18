@@ -2,6 +2,5 @@
 #include "JobDispatcher.h"
 
 
-__declspec(thread) std::deque<JobDispatcher*>* LJobDispatcherList = nullptr ;
-
-__declspec(thread) JobDispatcher*	LCurrentJobDispatcherOccupyingThisThread = nullptr ;
+thread_local std::deque<JobDispatcher*>* LJobDispatcherList = nullptr;
+thread_local JobDispatcher*	LCurrentJobDispatcherOccupyingThisThread = nullptr;

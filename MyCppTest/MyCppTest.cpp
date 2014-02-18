@@ -9,7 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <thread>
-
+#include <memory>
 
 class TestObject : public JobDispatcher
 {
@@ -49,7 +49,7 @@ void TestWorkerThread(int tid)
 {
 	LJobDispatcherList = new std::deque<JobDispatcher*>;
 
-	for (int i = 0; i < 10; ++i)
+	for (int i = 0; i < 100; ++i)
 	{
 		
 		GTestObject[rand() % 4]->DoAsync(&TestObject::TestFunc2, double(tid)*100, i);
@@ -78,13 +78,12 @@ int _tmain(int argc, _TCHAR* argv[])
 			thread.join();
 	}
 
+	
 	int total = 0;
 	for (int i = 0; i < 4; ++i)
 		total += GTestObject[i]->GetTestCount();
 
 	printf("TOTAL %d\n", total);
-
-	
 
 	getchar();
 

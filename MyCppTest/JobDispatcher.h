@@ -1,8 +1,12 @@
 #pragma once
 
-#include <windows.h>
+
+
 #include <deque>
+#include <atomic>
 #include <assert.h>
+#include <inttypes.h>
+
 #include "Job.h"
 
 class JobQueue
@@ -10,14 +14,16 @@ class JobQueue
 public:
 	JobQueue() : mHead(&mStub), mTail(&mStub)
 	{
-		mOffset = reinterpret_cast<__int64>(&((reinterpret_cast<JobEntry*>(0))->mNodeEntry));
+		mOffset = reinterpret_cast<int64_t>(&((reinterpret_cast<JobEntry*>(0))->mNodeEntry));
 	}
 	~JobQueue() {}
 
 	/// mutiple produce
 	void Push(JobEntry* newData)
 	{
-		NodeEntry* prevNode = (NodeEntry*)InterlockedExchangePointer((void**)&mHead, (void*)&(newData->mNodeEntry));
+		NodeEntry* prevNode = (NodeEntry*)std::atomic_exchange_explicit(&mHead,
+			reinterpret_cast<void*>(&newData->mNodeEntry), std::memory_order_acq_rel);
+
 		prevNode->mNext = &(newData->mNodeEntry);
 	}
 
@@ -29,39 +35,42 @@ public:
 
 		if (tail == &mStub)
 		{
-			/// 데이터가 없을 때
+			/// in case of empty
 			if (nullptr == next)
 				return nullptr;
 
-			/// 처음 꺼낼 때
+			/// first pop
 			mTail = next;
 			tail = next;
 			next = next->mNext;
 		}
 
-		/// 대부분의 경우에 데이터를 빼낼 때
+		/// in most cases...
 		if (next)
 		{
 			mTail = next;
 
-			return reinterpret_cast<JobEntry*>(reinterpret_cast<__int64>(tail)-mOffset);
+			return reinterpret_cast<JobEntry*>(reinterpret_cast<int64_t>(tail)-mOffset);
 		}
 
 		NodeEntry* head = mHead;
 		if (tail != head)
 			return nullptr;
 
-		/// 마지막 데이터 꺼낼 때
+		/// last pop
 		mStub.mNext = nullptr;
-		NodeEntry* prev = (NodeEntry*)InterlockedExchangePointer((void**)&mHead, (void*)&mStub);
-		prev->mNext = &mStub;
+		
+		NodeEntry* prevNode = (NodeEntry*)std::atomic_exchange_explicit(&mHead, 
+			reinterpret_cast<void*>(&mStub), std::memory_order_acq_rel);
+		
+		prevNode->mNext = &mStub;
 
 		next = tail->mNext;
 		if (next)
 		{
 			mTail = next;
 
-			return reinterpret_cast<JobEntry*>(reinterpret_cast<__int64>(tail)-mOffset);
+			return reinterpret_cast<JobEntry*>(reinterpret_cast<int64_t>(tail)-mOffset);
 		}
 
 		return nullptr;
@@ -70,20 +79,24 @@ public:
 
 private:
 
-	NodeEntry* volatile	mHead;
+	std::atomic<NodeEntry*> mHead;
+
 	NodeEntry*			mTail;
 	NodeEntry			mStub;
 
-	__int64				mOffset;
+	int64_t				mOffset;
 
 };
 
 
 class JobDispatcher;
 
-__declspec(thread) extern std::deque<JobDispatcher*>* LJobDispatcherList;
+#ifdef WIN32
+#define thread_local __declspec(thread)
+#endif
 
-__declspec(thread) extern JobDispatcher*	LCurrentJobDispatcherOccupyingThisThread;
+thread_local extern std::deque<JobDispatcher*>* LJobDispatcherList;
+thread_local extern JobDispatcher*	LCurrentJobDispatcherOccupyingThisThread;
 
 
 class JobDispatcher
@@ -106,45 +119,45 @@ public:
 
 	void AddRefForThis()
 	{
-		InterlockedIncrement(&mRefCount);
+		mRefCount.fetch_add(1, std::memory_order_acq_rel);
 	}
 
 	void ReleaseRefForThis()
 	{
-		InterlockedDecrement(&mRefCount);
+		mRefCount.fetch_sub(1, std::memory_order_acq_rel);
 	}
 
 private:
-	// Push a task into Job Queue, and then Execute tasks if possible
+	/// Push a task into Job Queue, and then Execute tasks if possible
 	void DoTask(JobEntry* task)
 	{
-		if (InterlockedIncrement64(&mRemainTaskCount) != 1)
+		if ( mRemainTaskCount.fetch_add(1, std::memory_order_acq_rel) != 0 )
 		{
-			// register the task in this dispatcher
+			/// register the task in this dispatcher
 			mJobQueue.Push(task);
 		}
 		else
 		{
-			// register the task in this dispatcher
+			/// register the task in this dispatcher
 			mJobQueue.Push(task);
 
 			AddRefForThis(); ///< refcount +1 for this object
 
-			// Does any dispathcer exist occupying this worker-thread at this moment?
+			/// Does any dispathcer exist occupying this worker-thread at this moment?
 			if (LCurrentJobDispatcherOccupyingThisThread != nullptr)
 			{
-				// just register this dispatcher in this worker-thread
+				/// just register this dispatcher in this worker-thread
 				LJobDispatcherList->push_back(this);
 			}
 			else
 			{
-				// acquire
+				/// acquire
 				LCurrentJobDispatcherOccupyingThisThread = this;
 
-				// invokes all tasks of this dispatcher
+				/// invokes all tasks of this dispatcher
 				Flush();
 
-				// invokes all tasks of other dispatchers registered in this thread
+				/// invokes all tasks of other dispatchers registered in this thread
 				while (!LJobDispatcherList->empty())
 				{
 					JobDispatcher* dispacher = LJobDispatcherList->front();
@@ -153,14 +166,14 @@ private:
 					dispacher->ReleaseRefForThis();
 				}
 
-				// release 
+				/// release 
 				LCurrentJobDispatcherOccupyingThisThread = nullptr;
 				ReleaseRefForThis(); ///< refcount -1 for this object
 			}
 		}
 	}
 
-	// Execute all tasks registered in JobQueue of this dispatcher
+	/// Execute all tasks registered in JobQueue of this dispatcher
 	void Flush()
 	{
 		while ( true )
@@ -170,7 +183,7 @@ private:
 				job->OnExecute();
 				delete job;
 
-				if ( InterlockedDecrement64(&mRemainTaskCount) == 0 )
+				if ( mRemainTaskCount.fetch_sub(1, std::memory_order_acq_rel) == 1 )
 					break;
 			}
 		}
@@ -178,13 +191,14 @@ private:
 
 
 private:
-	// member variables
+	/// member variables
 	JobQueue	mJobQueue;
 
-	volatile LONGLONG mRemainTaskCount;
+	std::atomic<int64_t> mRemainTaskCount;
+	
+	/// should not release this object when it is in the dispatcher
+	std::atomic<int32_t> mRefCount;
 
-	// should not release this object when it is in the dispatcher
-	volatile long mRefCount;
 };
 
 
