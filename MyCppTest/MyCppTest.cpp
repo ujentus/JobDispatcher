@@ -11,7 +11,7 @@
 #include <thread>
 
 
-class TestObject
+class TestObject : public JobDispatcher
 {
 public:
 	TestObject() : mTestCount(0)
@@ -41,7 +41,6 @@ private:
 
 	int mTestCount;
 
-	USE_OBJECT_BOUND_DISPATCHER;
 };
 
 TestObject* GTestObject[4] = {0,};
@@ -85,6 +84,12 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	printf("TOTAL %d\n", total);
 
+	
+
 	getchar();
+
+	for (int i = 0; i < 4; ++i)
+		delete GTestObject[i];
+
 	return 0;
 }
