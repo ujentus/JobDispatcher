@@ -15,6 +15,7 @@ public:
 	JobQueue() : mHead(&mStub), mTail(&mStub)
 	{
 		mOffset = reinterpret_cast<int64_t>(&((reinterpret_cast<JobEntry*>(0))->mNodeEntry));
+		assert(mHead.is_lock_free());
 	}
 	~JobQueue() {}
 
@@ -119,19 +120,19 @@ public:
 
 	void AddRefForThis()
 	{
-		mRefCount.fetch_add(1, std::memory_order_acq_rel);
+		mRefCount.fetch_add(1);
 	}
 
 	void ReleaseRefForThis()
 	{
-		mRefCount.fetch_sub(1, std::memory_order_acq_rel);
+		mRefCount.fetch_sub(1);
 	}
 
 private:
 	/// Push a task into Job Queue, and then Execute tasks if possible
 	void DoTask(JobEntry* task)
 	{
-		if ( mRemainTaskCount.fetch_add(1, std::memory_order_acq_rel) != 0 )
+		if ( mRemainTaskCount.fetch_add(1) != 0 )
 		{
 			/// register the task in this dispatcher
 			mJobQueue.Push(task);
@@ -183,7 +184,7 @@ private:
 				job->OnExecute();
 				delete job;
 
-				if ( mRemainTaskCount.fetch_sub(1, std::memory_order_acq_rel) == 1 )
+				if ( mRemainTaskCount.fetch_sub(1) == 1 )
 					break;
 			}
 		}

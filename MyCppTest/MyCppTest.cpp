@@ -11,6 +11,8 @@
 #include <thread>
 #include <memory>
 
+#define WORKER_THREAD	8
+
 class TestObject : public JobDispatcher
 {
 public:
@@ -20,19 +22,19 @@ public:
 	void TestFunc0()
 	{
 		++mTestCount;
-		printf("[%d] TestFunc0 \n", mTestCount);
+		//printf("[%d] TestFunc0 \n", mTestCount);
 	}
 
 	void TestFunc1(int b)
 	{
 		++mTestCount;
-		printf("[%d] TestFunc1 %d\n", mTestCount, b);
+		//printf("[%d] TestFunc1 %d\n", mTestCount, b);
 	}
 
 	void TestFunc2(double a, int b)
 	{
 		++mTestCount;
-		printf("[%d] TestFunc2 %f\n", mTestCount, a + b);
+		//printf("[%d] TestFunc2 %f\n", mTestCount, a + b);
 	}
 
 
@@ -43,30 +45,30 @@ private:
 
 };
 
-TestObject* GTestObject[4] = {0,};
+TestObject* GTestObject[WORKER_THREAD] = { 0, };
 
 void TestWorkerThread(int tid)
 {
 	LJobDispatcherList = new std::deque<JobDispatcher*>;
 
-	for (int i = 0; i < 100; ++i)
+	for (int i = 0; i < 10000; ++i)
 	{
 		
-		GTestObject[rand() % 4]->DoAsync(&TestObject::TestFunc2, double(tid)*100, i);
-		GTestObject[rand() % 4]->DoAsync(&TestObject::TestFunc1, 100);
-		GTestObject[rand() % 4]->DoAsync(&TestObject::TestFunc0);
+ 		GTestObject[rand() % WORKER_THREAD]->DoAsync(&TestObject::TestFunc2, double(tid) * 100, i);
+ 		GTestObject[rand() % WORKER_THREAD]->DoAsync(&TestObject::TestFunc1, 100);
+ 		GTestObject[rand() % WORKER_THREAD]->DoAsync(&TestObject::TestFunc0);
 	}
 
 }
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < WORKER_THREAD; ++i)
 		GTestObject[i] = new TestObject;
 
 	std::vector<std::thread> threadList;
 
-	for (int i = 0; i <4; ++i)
+	for (int i = 0; i <WORKER_THREAD; ++i)
 	{
 		threadList.push_back(std::thread(TestWorkerThread, i+1));
 	}
@@ -80,14 +82,15 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	
 	int total = 0;
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < WORKER_THREAD; ++i)
 		total += GTestObject[i]->GetTestCount();
 
 	printf("TOTAL %d\n", total);
 
+
 	getchar();
 
-	for (int i = 0; i < 4; ++i)
+	for (int i = 0; i < WORKER_THREAD; ++i)
 		delete GTestObject[i];
 
 	return 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include "ObjectPool.h"
 
 template <int N>
 struct TupleUnpacker
@@ -38,8 +39,8 @@ struct NodeEntry
 
 struct JobEntry
 {
-	JobEntry() 
-	{}
+	JobEntry() 	{}
+	virtual ~JobEntry() {}
 
 	virtual void OnExecute()
 	{}
@@ -49,7 +50,7 @@ struct JobEntry
 
 
 template <class ObjType, class... ArgTypes>
-struct Job : public JobEntry
+struct Job : public JobEntry, ObjectPool<Job<ObjType, ArgTypes...>>
 {
 	typedef void (ObjType::*MemFunc_)(ArgTypes... args);
 	typedef std::tuple<ArgTypes...> Args_;
@@ -58,6 +59,8 @@ struct Job : public JobEntry
 	Job(ObjType* obj, MemFunc_ memfunc, ArgTypes... args)
 		: mObject(obj), mMemFunc(memfunc), mArgs(std::forward<ArgTypes>(args)...)
 	{}
+
+	virtual ~Job() {}
 
 	virtual void OnExecute()
 	{
