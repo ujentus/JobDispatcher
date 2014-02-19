@@ -12,8 +12,9 @@
 	}
 
 
+#include <windows.h>
 
-template <class T, int ALLOC_COUNT = 100>
+template <class T>
 class ObjectPool
 {
 public:
@@ -31,35 +32,40 @@ public:
 
 	enum
 	{
-		QUEUE_MAX_SIZE = PowerOfTwo<16>::value, ///< must be power of 2
+		QUEUE_MAX_SIZE = PowerOfTwo<12>::value, ///< must be power of 2
 		QUEUE_SIZE_MASK = QUEUE_MAX_SIZE - 1
 	};
 
+	static void PrepareAllocation()
+	{
+		for (int i = 0; i < QUEUE_MAX_SIZE; ++i)
+			mPool[i] = malloc(sizeof(T));
+
+		mTailPos.fetch_add(QUEUE_MAX_SIZE);
+	}
 
 	static void* operator new(size_t objSize)
 	{
-		void* popVal = std::atomic_exchange(&mPool[mHeadPos & QUEUE_SIZE_MASK], nullptr);
+		uint64_t popPos = mHeadPos.fetch_add(1);
 
+		void* popVal = std::atomic_exchange(&mPool[popPos & QUEUE_SIZE_MASK], nullptr);
 		if (popVal != nullptr)
-		{
-			mHeadPos.fetch_add(1);
-		}
-		else
-		{
-			_ASSERT_CRASH(objSize == sizeof(T));
-			popVal = malloc(objSize);
-		}
-			
-		return popVal;
+			return popVal;
+	
+		_ASSERT_CRASH(objSize == sizeof(T));
+
+		return malloc(objSize);
 	}
 
 	static void	operator delete(void* obj)
 	{
 		uint64_t insPos = mTailPos.fetch_add(1);
 
-		_ASSERT_CRASH(insPos - mHeadPos < QUEUE_MAX_SIZE); ///< overflow
-
-		mPool[insPos & QUEUE_SIZE_MASK] = obj;
+		if (insPos - mHeadPos < QUEUE_MAX_SIZE)
+			mPool[insPos & QUEUE_SIZE_MASK] = obj;
+		else
+			free(obj);
+			
 	}
 
 
@@ -71,11 +77,11 @@ private:
 
 };
 
-template <class T, int ALLOC_COUNT>
-std::atomic<void*> ObjectPool<T, ALLOC_COUNT>::mPool[QUEUE_MAX_SIZE] = { 0, };
+template <class T>
+std::atomic<void*> ObjectPool<T>::mPool[QUEUE_MAX_SIZE] = { 0, };
 
-template <class T, int ALLOC_COUNT>
-std::atomic<uint64_t>	ObjectPool<T, ALLOC_COUNT>::mHeadPos = 0;
+template <class T>
+std::atomic<uint64_t> ObjectPool<T>::mHeadPos = 0;
 
-template <class T, int ALLOC_COUNT>
-std::atomic<uint64_t>	ObjectPool<T, ALLOC_COUNT>::mTailPos = 0;
+template <class T>
+std::atomic<uint64_t> ObjectPool<T>::mTailPos = 0;
