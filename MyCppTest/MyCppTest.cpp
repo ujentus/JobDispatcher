@@ -51,7 +51,7 @@ void TestWorkerThread(int tid)
 {
 	LJobDispatcherList = new std::deque<JobDispatcher*>;
 
-	for (int i = 0; i < 1000000; ++i)
+	for (int i = 0; i < 100000; ++i)
 	{
 		
  		GTestObject[rand() % WORKER_THREAD]->DoAsync(&TestObject::TestFunc2, double(tid) * 100, i);
@@ -64,9 +64,9 @@ void TestWorkerThread(int tid)
 int _tmain(int argc, _TCHAR* argv[])
 {
 
- 	ObjectPool< Job<TestObject, double, int> >::PrepareAllocation();
- 	ObjectPool< Job<TestObject, int> >::PrepareAllocation();
- 	ObjectPool< Job<TestObject> >::PrepareAllocation();
+ //	ObjectPool< Job<TestObject, double, int> >::PrepareAllocation();
+ //	ObjectPool< Job<TestObject, int> >::PrepareAllocation();
+ //	ObjectPool< Job<TestObject> >::PrepareAllocation();
 
 	for (int i = 0; i < WORKER_THREAD; ++i)
 		GTestObject[i] = new TestObject;

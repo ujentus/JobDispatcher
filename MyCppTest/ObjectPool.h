@@ -12,8 +12,6 @@
 	}
 
 
-#include <windows.h>
-
 template <class T>
 class ObjectPool
 {
@@ -32,23 +30,24 @@ public:
 
 	enum
 	{
-		QUEUE_MAX_SIZE = PowerOfTwo<12>::value, ///< must be power of 2
-		QUEUE_SIZE_MASK = QUEUE_MAX_SIZE - 1
+		POOL_MAX_SIZE = PowerOfTwo<12>::value, ///< must be power of 2
+		POOL_SIZE_MASK = POOL_MAX_SIZE - 1
 	};
 
+	/// memory pre- allocation is just optional :)
 	static void PrepareAllocation()
 	{
-		for (int i = 0; i < QUEUE_MAX_SIZE; ++i)
+		for (int i = 0; i < POOL_MAX_SIZE; ++i)
 			mPool[i] = malloc(sizeof(T));
 
-		mTailPos.fetch_add(QUEUE_MAX_SIZE);
+		mTailPos.fetch_add(POOL_MAX_SIZE);
 	}
 
 	static void* operator new(size_t objSize)
 	{
 		uint64_t popPos = mHeadPos.fetch_add(1);
 
-		void* popVal = std::atomic_exchange(&mPool[popPos & QUEUE_SIZE_MASK], nullptr);
+		void* popVal = std::atomic_exchange(&mPool[popPos & POOL_SIZE_MASK], nullptr);
 		if (popVal != nullptr)
 			return popVal;
 	
@@ -61,27 +60,27 @@ public:
 	{
 		uint64_t insPos = mTailPos.fetch_add(1);
 
-		if (insPos - mHeadPos < QUEUE_MAX_SIZE)
-			mPool[insPos & QUEUE_SIZE_MASK] = obj;
-		else
-			free(obj);
-			
+		void* prevVal = std::atomic_exchange(&mPool[insPos & POOL_SIZE_MASK], obj);
+
+		if (prevVal != nullptr)
+			free(prevVal);
 	}
 
 
 private:
 
-	static std::atomic<void*>		mPool[QUEUE_MAX_SIZE];
+	static std::atomic<void*>		mPool[POOL_MAX_SIZE];
 	static std::atomic<uint64_t>	mHeadPos;
 	static std::atomic<uint64_t>	mTailPos;
 
 };
 
 template <class T>
-std::atomic<void*> ObjectPool<T>::mPool[QUEUE_MAX_SIZE] = { 0, };
+std::atomic<void*> ObjectPool<T>::mPool[POOL_MAX_SIZE] = { 0, };
 
 template <class T>
 std::atomic<uint64_t> ObjectPool<T>::mHeadPos = 0;
 
 template <class T>
 std::atomic<uint64_t> ObjectPool<T>::mTailPos = 0;
+
