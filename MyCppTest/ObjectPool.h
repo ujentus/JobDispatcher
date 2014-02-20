@@ -1,15 +1,29 @@
 #pragma once
 #include <atomic>
+#include <malloc.h>
 #include <inttypes.h>
+
+#define ALIGNMENT 8
+
+#ifdef WIN32
+#define EXPLICIT_MEMORY_ALIGNMENT __declspec(align(ALIGNMENT))
+#define MEM_ALLOC(x)	_aligned_malloc(x, ALIGNMENT)
+#define MEM_FREE(x)		_aligned_free(x)
+#else
+#define EXPLICIT_MEMORY_ALIGNMENT __attribute__((aligned(ALIGNMENT)))
+#define MEM_ALLOC(x)	memalign(ALIGNMENT, x)
+#define MEM_FREE(x)		free(x)
+#endif 
 
 #define _ASSERT_CRASH(expr) \
 	{ \
-		if (!(expr)) \
+if (!(expr)) \
 		{ \
-			int* dummy = 0; \
-			*dummy = 0xDEADBEEF; \
+		int* dummy = 0; \
+		*dummy = 0xDEADBEEF; \
 		} \
 	}
+
 
 
 template <class T>
@@ -38,7 +52,7 @@ public:
 	static void PrepareAllocation()
 	{
 		for (int i = 0; i < POOL_MAX_SIZE; ++i)
-			mPool[i] = malloc(sizeof(T));
+			mPool[i] = MEM_ALLOC(sizeof(T));
 
 		mTailPos.fetch_add(POOL_MAX_SIZE);
 	}
@@ -53,7 +67,7 @@ public:
 	
 		_ASSERT_CRASH(objSize == sizeof(T));
 
-		return malloc(objSize);
+		return MEM_ALLOC(objSize);
 	}
 
 	static void	operator delete(void* obj)
@@ -63,15 +77,15 @@ public:
 		void* prevVal = std::atomic_exchange(&mPool[insPos & POOL_SIZE_MASK], obj);
 
 		if (prevVal != nullptr)
-			free(prevVal);
+			MEM_FREE(prevVal);
 	}
 
 
 private:
 
-	static std::atomic<void*>		mPool[POOL_MAX_SIZE];
-	static std::atomic<uint64_t>	mHeadPos;
-	static std::atomic<uint64_t>	mTailPos;
+	static std::atomic<void*>	 EXPLICIT_MEMORY_ALIGNMENT	mPool[POOL_MAX_SIZE];
+	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mHeadPos;
+	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mTailPos;
 
 };
 
@@ -83,4 +97,3 @@ std::atomic<uint64_t> ObjectPool<T>::mHeadPos = 0;
 
 template <class T>
 std::atomic<uint64_t> ObjectPool<T>::mTailPos = 0;
-

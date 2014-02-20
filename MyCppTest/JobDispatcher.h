@@ -15,7 +15,7 @@ public:
 	JobQueue() : mHead(&mStub), mTail(&mStub)
 	{
 		mOffset = reinterpret_cast<int64_t>(&((reinterpret_cast<JobEntry*>(0))->mNodeEntry));
-		assert(mHead.is_lock_free());
+		_ASSERT_CRASH(mHead.is_lock_free());
 	}
 	~JobQueue() {}
 
