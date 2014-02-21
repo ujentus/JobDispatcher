@@ -30,21 +30,10 @@ template <class T>
 class ObjectPool
 {
 public:
-	template<int E>
-	struct PowerOfTwo
-	{
-		enum { value = 2 * PowerOfTwo<E - 1>::value };
-	};
-
-	template<>
-	struct PowerOfTwo<0>
-	{
-		enum { value = 1 };
-	};
 
 	enum
 	{
-		POOL_MAX_SIZE = PowerOfTwo<12>::value, ///< must be power of 2
+		POOL_MAX_SIZE = 4096, ///< must be power of 2
 		POOL_SIZE_MASK = POOL_MAX_SIZE - 1
 	};
 
@@ -61,7 +50,7 @@ public:
 	{
 		uint64_t popPos = mHeadPos.fetch_add(1);
 
-		void* popVal = std::atomic_exchange(&mPool[popPos & POOL_SIZE_MASK], nullptr);
+		void* popVal = std::atomic_exchange(&mPool[popPos & POOL_SIZE_MASK], (void*)nullptr);
 		if (popVal != nullptr)
 			return popVal;
 	
@@ -87,13 +76,14 @@ private:
 	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mHeadPos;
 	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mTailPos;
 
+	void* __powerof2check__[((POOL_MAX_SIZE & POOL_SIZE_MASK) == 0) & 1];
 };
 
 template <class T>
-std::atomic<void*> ObjectPool<T>::mPool[POOL_MAX_SIZE] = { 0, };
+std::atomic<void*> ObjectPool<T>::mPool[POOL_MAX_SIZE];
 
 template <class T>
-std::atomic<uint64_t> ObjectPool<T>::mHeadPos = 0;
+std::atomic<uint64_t> ObjectPool<T>::mHeadPos;
 
 template <class T>
-std::atomic<uint64_t> ObjectPool<T>::mTailPos = 0;
+std::atomic<uint64_t> ObjectPool<T>::mTailPos;

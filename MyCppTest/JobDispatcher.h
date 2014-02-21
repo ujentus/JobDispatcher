@@ -11,7 +11,7 @@ class JobQueue
 public:
 	JobQueue() : mHead(&mStub), mTail(&mStub)
 	{
-		mOffset = reinterpret_cast<int64_t>(&((reinterpret_cast<JobEntry*>(0))->mNodeEntry));
+		mOffset = offsetof(struct JobEntry, mNodeEntry);
 		_ASSERT_CRASH(mHead.is_lock_free());
 	}
 	~JobQueue() {}
@@ -20,7 +20,7 @@ public:
 	void Push(JobEntry* newData)
 	{
 		NodeEntry* prevNode = (NodeEntry*)std::atomic_exchange_explicit(&mHead,
-			reinterpret_cast<void*>(&newData->mNodeEntry), std::memory_order_acq_rel);
+			&newData->mNodeEntry, std::memory_order_acq_rel);
 
 		prevNode->mNext = &(newData->mNodeEntry);
 	}
@@ -59,7 +59,7 @@ public:
 		mStub.mNext = nullptr;
 		
 		NodeEntry* prevNode = (NodeEntry*)std::atomic_exchange_explicit(&mHead, 
-			reinterpret_cast<void*>(&mStub), std::memory_order_acq_rel);
+			&mStub, std::memory_order_acq_rel);
 		
 		prevNode->mNext = &mStub;
 
