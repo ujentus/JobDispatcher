@@ -65,10 +65,6 @@ void TestWorkerThread(int tid)
 int _tmain(int argc, _TCHAR* argv[])
 {
 
- //	ObjectPool< Job<TestObject, double, int> >::PrepareAllocation();
- //	ObjectPool< Job<TestObject, int> >::PrepareAllocation();
- //	ObjectPool< Job<TestObject> >::PrepareAllocation();
-
 	for (int i = 0; i < WORKER_THREAD; ++i)
 		GTestObject[i] = new TestObject;
 

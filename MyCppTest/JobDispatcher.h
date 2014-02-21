@@ -1,10 +1,7 @@
 #pragma once
 
-
-
 #include <deque>
 #include <atomic>
-#include <assert.h>
 #include <inttypes.h>
 
 #include "Job.h"
@@ -107,7 +104,7 @@ public:
 	JobDispatcher() : mRemainTaskCount(0), mRefCount(0) {}
 	virtual ~JobDispatcher() 
 	{
-		assert(mRefCount == 0);
+		_ASSERT_CRASH(mRefCount == 0);
 	}
 
 
