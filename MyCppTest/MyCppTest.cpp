@@ -9,12 +9,12 @@
 #include <vector>
 #include <iostream>
 #include <thread>
-#include <memory>
+
 
 
 #define WORKER_THREAD	8
 
-class TestObject : public JobDispatcher
+class TestObject : public AsyncExecutable
 {
 public:
 	TestObject() : mTestCount(0)
@@ -50,7 +50,7 @@ TestObject* GTestObject[WORKER_THREAD] = { 0, };
 
 void TestWorkerThread(int tid)
 {
-	LJobDispatcherList = new std::deque<JobDispatcher*>;
+	LExecuterList = new std::deque<AsyncExecutable*>;
 
 	for (int i = 0; i < 100000; ++i)
 	{
@@ -60,6 +60,7 @@ void TestWorkerThread(int tid)
  		GTestObject[rand() % WORKER_THREAD]->DoAsync(&TestObject::TestFunc0);
 	}
 
+	delete LExecuterList;
 }
 
 int _tmain(int argc, _TCHAR* argv[])

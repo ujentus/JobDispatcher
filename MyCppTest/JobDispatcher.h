@@ -87,22 +87,22 @@ private:
 };
 
 
-class JobDispatcher;
+class AsyncExecutable;
 
 #ifdef WIN32
 #define thread_local __declspec(thread)
 #endif
 
-thread_local extern std::deque<JobDispatcher*>* LJobDispatcherList;
-thread_local extern JobDispatcher*	LCurrentJobDispatcherOccupyingThisThread;
+thread_local extern std::deque<AsyncExecutable*>* LExecuterList;
+thread_local extern AsyncExecutable*	LCurrentExecuterOccupyingThisThread;
 
 
-class JobDispatcher
+class AsyncExecutable
 {
 public:
 
-	JobDispatcher() : mRemainTaskCount(0), mRefCount(0) {}
-	virtual ~JobDispatcher() 
+	AsyncExecutable() : mRemainTaskCount(0), mRefCount(0) {}
+	virtual ~AsyncExecutable()
 	{
 		_ASSERT_CRASH(mRefCount == 0);
 	}
@@ -142,30 +142,30 @@ private:
 			AddRefForThis(); ///< refcount +1 for this object
 
 			/// Does any dispathcer exist occupying this worker-thread at this moment?
-			if (LCurrentJobDispatcherOccupyingThisThread != nullptr)
+			if (LCurrentExecuterOccupyingThisThread != nullptr)
 			{
 				/// just register this dispatcher in this worker-thread
-				LJobDispatcherList->push_back(this);
+				LExecuterList->push_back(this);
 			}
 			else
 			{
 				/// acquire
-				LCurrentJobDispatcherOccupyingThisThread = this;
+				LCurrentExecuterOccupyingThisThread = this;
 
 				/// invokes all tasks of this dispatcher
 				Flush();
 
 				/// invokes all tasks of other dispatchers registered in this thread
-				while (!LJobDispatcherList->empty())
+				while (!LExecuterList->empty())
 				{
-					JobDispatcher* dispacher = LJobDispatcherList->front();
-					LJobDispatcherList->pop_front();
+					AsyncExecutable* dispacher = LExecuterList->front();
+					LExecuterList->pop_front();
 					dispacher->Flush();
 					dispacher->ReleaseRefForThis();
 				}
 
 				/// release 
-				LCurrentJobDispatcherOccupyingThisThread = nullptr;
+				LCurrentExecuterOccupyingThisThread = nullptr;
 				ReleaseRefForThis(); ///< refcount -1 for this object
 			}
 		}
