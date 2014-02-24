@@ -17,10 +17,10 @@
 
 #define _ASSERT_CRASH(expr) \
 	{ \
-if (!(expr)) \
+		if (!(expr)) \
 		{ \
-		int* dummy = 0; \
-		*dummy = 0xDEADBEEF; \
+			int* dummy = 0; \
+			*dummy = 0xDEADBEEF; \
 		} \
 	}
 
@@ -76,7 +76,7 @@ private:
 	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mHeadPos;
 	static std::atomic<uint64_t> EXPLICIT_MEMORY_ALIGNMENT	mTailPos;
 
-	void* __powerof2check__[((POOL_MAX_SIZE & POOL_SIZE_MASK) == 0) & 1];
+	void* __powerof2check__[((POOL_MAX_SIZE & POOL_SIZE_MASK) == 0x0) & 0x1];
 };
 
 template <class T>
