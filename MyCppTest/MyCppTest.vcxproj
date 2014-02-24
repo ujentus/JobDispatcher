@@ -22,6 +22,7 @@
     <ProjectGuid>{04B52247-EBB2-4196-B754-2BBCB987AF38}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>MyCppTest</RootNamespace>
+    <ProjectName>DispatcherTest</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -150,7 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JobDispatcher.cpp" />
-    <ClCompile Include="MyCppTest.cpp" />
+    <ClCompile Include="DispatcherTest.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
